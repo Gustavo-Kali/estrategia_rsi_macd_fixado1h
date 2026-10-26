@@ -1,0 +1,315 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Execução Manual — AI.Bot</title>
+    <meta name="description" content="Painel de execução manual de ordens na Binance Futures com Stop Loss e Take Profit.">
+    <link rel="stylesheet" href="/css/global.css">
+    <link rel="stylesheet" href="/css/manual.css">
+</head><body>
+
+<!-- Header -->
+<header>
+    <div class="navbar">
+        <a href="/" class="brand-logo">
+            <div class="logo-symbol">AI</div>
+            <span>AI.Bot Applied Strategy</span>
+        </a>
+        <a href="/" class="nav-back" id="btn-back-home">← Voltar ao Início</a>
+    </div>
+</header>
+
+<main>
+    <h1 class="page-title">🎮 Execução Manual</h1>
+    <p class="page-sub">Envie ordens diretamente à Binance Futures com Stop Loss e Take Profit.</p>
+
+    <div class="panel-grid">
+
+        <!-- ═══ Painel Esquerdo: Configuração ═══ -->
+        <div class="card config-card">
+            <div class="card-title">Configuração</div>
+
+            <!-- Ambiente -->
+            <div class="env-toggle">
+                <button class="env-btn active-testnet" id="btn-env-testnet" onclick="setEnv('testnet')">Testnet</button>
+                <button class="env-btn" id="btn-env-prod" onclick="setEnv('production')">Produção Real</button>
+            </div>
+
+            <!-- Credenciais -->
+            <div class="form-group">
+                <div class="form-label">API Key</div>
+                <div class="pass-wrap">
+                    <input type="password" id="api-key" placeholder="Insira sua API Key" autocomplete="off">
+                    <button class="pass-toggle" onclick="togglePass('api-key', this)">👁</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="form-label">API Secret</div>
+                <div class="pass-wrap">
+                    <input type="password" id="api-secret" placeholder="Insira seu API Secret" autocomplete="off">
+                    <button class="pass-toggle" onclick="togglePass('api-secret', this)">👁</button>
+                </div>
+            </div>
+
+            <hr class="divider">
+
+            <!-- Par e Quantidade -->
+            <div class="form-group">
+                <div class="form-label">Par <span id="lbl-price-inline">—</span></div>
+                <input type="text" id="inp-symbol" value="BTCUSDT" placeholder="Ex: BTCUSDT" oninput="onSymbolChange()">
+            </div>
+            <div class="form-group">
+                <div class="form-label">Quantidade (BTC)</div>
+                <input type="number" id="inp-qty" value="0.002" step="0.001" min="0.001" placeholder="Ex: 0.002">
+            </div>
+
+            <hr class="divider">
+
+            <!-- Stop Loss / Take Profit -->
+            <div class="card-title" style="margin-bottom:14px;">Proteção da Ordem</div>
+            <div class="sl-tp-row">
+                <div class="form-group" style="margin-bottom:0">
+                    <div class="form-label">Stop Loss ($)</div>
+                    <div class="input-icon-wrap">
+                        <span class="input-prefix">$</span>
+                        <input type="number" id="inp-sl" placeholder="0.00" step="0.10" min="0">
+                    </div>
+                </div>
+                <div class="form-group" style="margin-bottom:0">
+                    <div class="form-label">Take Profit ($)</div>
+                    <div class="input-icon-wrap">
+                        <span class="input-prefix">$</span>
+                        <input type="number" id="inp-tp" placeholder="0.00" step="0.10" min="0">
+                    </div>
+                </div>
+            </div>
+
+            <p style="font-size:.78rem; color:var(--text-muted); margin-top:10px;">
+                ⚠️ Deixe em 0 para enviar sem SL ou TP.
+            </p>
+        </div>
+
+        <!-- ═══ Painel Direito: Execução ═══ -->
+        <div style="display:flex; flex-direction:column; gap:24px;">
+
+            <!-- Posição Atual + Preço -->
+            <div class="card" style="padding:22px 28px;">
+                <div class="card-title">Posição Atual</div>
+
+                <div class="price-info">
+                    <div>
+                        <div class="price-label">Preço Atual</div>
+                        <div class="price-value" id="live-price">—</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div class="price-change up" id="live-change">—</div>
+                        <div class="price-label" id="live-symbol-lbl">BTCUSDT</div>
+                    </div>
+                </div>
+
+                <div id="pos-badge" class="position-badge none">
+                    <div class="pos-dot"></div>
+                    <span id="pos-badge-text">SEM POSIÇÃO</span>
+                </div>
+
+                <div class="summary-grid">
+                    <div class="summary-item">
+                        <div class="summary-lbl">Entrada</div>
+                        <div class="summary-val" id="sum-entry">—</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-lbl">Stop Loss</div>
+                        <div class="summary-val" id="sum-sl" style="color:var(--red);">—</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-lbl">Take Profit</div>
+                        <div class="summary-val" id="sum-tp" style="color:var(--green);">—</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Botões de Ordem -->
+            <div class="card green-card" style="padding:22px 28px;">
+                <div class="card-title">Compra (LONG)</div>
+                <button class="btn-buy" id="btn-buy" onclick="executeOrder('BUY')">
+                    ▲ COMPRAR / LONG
+                </button>
+            </div>
+
+            <div class="card red-card" style="padding:22px 28px;">
+                <div class="card-title">Venda (SHORT)</div>
+                <button class="btn-sell" id="btn-sell" onclick="executeOrder('SELL')">
+                    ▼ VENDER / SHORT
+                </button>
+            </div>
+
+            <!-- Log -->
+            <div class="card" style="padding:22px 28px;">
+                <div class="card-title" style="margin-bottom:12px;">Log de Execução</div>
+                <div class="log-box" id="log-box">
+                    <div class="log-line info">
+                        <span class="log-time">--:--:--</span>
+                        <span class="log-msg">Aguardando configuração...</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</main>
+
+<footer>
+    <p>&copy; 2026 AI.Bot Applied Strategy &bull; Execução Manual via Binance Futures API</p>
+</footer>
+
+<script>
+    /* ── Estado ── */
+    let env     = 'testnet';
+    let wsPrice = null;
+    let currentSymbol = 'BTCUSDT';
+    let currentPrice  = 0;
+
+    /* ── Init ── */
+    window.addEventListener('DOMContentLoaded', () => {
+        loadCreds();
+        connectPriceWS(currentSymbol);
+    });
+
+    /* ── Ambiente ── */
+    function setEnv(e) {
+        env = e;
+        document.getElementById('btn-env-testnet').className = 'env-btn' + (e === 'testnet' ? ' active-testnet' : '');
+        document.getElementById('btn-env-prod').className    = 'env-btn' + (e === 'production' ? ' active-prod' : '');
+        localStorage.setItem('manual_env', e);
+        log(`Ambiente: ${e === 'testnet' ? 'Binance Testnet' : 'Produção Real'}`, 'info');
+    }
+
+    /* ── Símbolo ── */
+    function onSymbolChange() {
+        const sym = document.getElementById('inp-symbol').value.trim().toUpperCase();
+        if (sym.length < 3) return;
+        currentSymbol = sym;
+        document.getElementById('live-symbol-lbl').textContent = sym;
+        connectPriceWS(sym);
+    }
+
+    /* ── WebSocket de preço (Binance pública) ── */
+    function connectPriceWS(symbol) {
+        if (wsPrice) { wsPrice.onclose = null; wsPrice.close(); }
+        wsPrice = new WebSocket(`wss://fstream.binance.com/ws/${symbol.toLowerCase()}@ticker`);
+        wsPrice.onmessage = (e) => {
+            try {
+                const d = JSON.parse(e.data);
+                currentPrice = parseFloat(d.c);
+                const pct    = parseFloat(d.P);
+                document.getElementById('live-price').textContent = '$' + currentPrice.toFixed(2);
+                document.getElementById('lbl-price-inline').textContent = '$' + currentPrice.toFixed(2);
+                const chEl = document.getElementById('live-change');
+                chEl.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
+                chEl.className   = 'price-change ' + (pct >= 0 ? 'up' : 'down');
+            } catch(_) {}
+        };
+        wsPrice.onerror = () => {};
+        wsPrice.onclose = () => setTimeout(() => connectPriceWS(symbol), 3000);
+    }
+
+    /* ── Credenciais ── */
+    function loadCreds() {
+        document.getElementById('api-key').value    = localStorage.getItem('manual_api_key')    || '';
+        document.getElementById('api-secret').value = localStorage.getItem('manual_api_secret') || '';
+        setEnv(localStorage.getItem('manual_env') || 'testnet');
+    }
+
+    function saveCreds() {
+        localStorage.setItem('manual_api_key',    document.getElementById('api-key').value.trim());
+        localStorage.setItem('manual_api_secret', document.getElementById('api-secret').value.trim());
+    }
+
+    function togglePass(inputId, btn) {
+        const el = document.getElementById(inputId);
+        if (el.type === 'password') { el.type = 'text';     btn.innerHTML = '🚫'; }
+        else                        { el.type = 'password'; btn.innerHTML = '👁'; }
+    }
+
+    /* ── Executar Ordem ── */
+    async function executeOrder(side) {
+        saveCreds();
+        const apiKey    = document.getElementById('api-key').value.trim();
+        const apiSecret = document.getElementById('api-secret').value.trim();
+        const symbol    = document.getElementById('inp-symbol').value.trim().toUpperCase() || 'BTCUSDT';
+        const qty       = parseFloat(document.getElementById('inp-qty').value)   || 0;
+        const sl        = parseFloat(document.getElementById('inp-sl').value)    || 0;
+        const tp        = parseFloat(document.getElementById('inp-tp').value)    || 0;
+
+        if (!apiKey || !apiSecret) { log('❌ Configure API Key e Secret antes de operar.', 'err'); return; }
+        if (qty <= 0)              { log('❌ Quantidade inválida.', 'err'); return; }
+
+        const btnBuy  = document.getElementById('btn-buy');
+        const btnSell = document.getElementById('btn-sell');
+        btnBuy.disabled = btnSell.disabled = true;
+
+        log(`⏳ Enviando ${side === 'BUY' ? 'COMPRA (LONG)' : 'VENDA (SHORT)'} — ${qty} ${symbol}...`, 'info');
+
+        const body = {
+            apiKey, apiSecret,
+            testnet:    env === 'testnet',
+            symbol,
+            side,
+            type:       'MARKET',
+            quantity:   qty,
+            stopLoss:   sl > 0 ? sl  : undefined,
+            takeProfit: tp > 0 ? tp  : undefined
+        };
+
+        try {
+            const res  = await fetch('/api/order', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify(body)
+            });
+            const data = await res.json();
+
+            if (!res.ok || data.error) {
+                log(`❌ Erro: ${data.error || JSON.stringify(data)}`, 'err');
+            } else {
+                log(`✅ Ordem ${side} executada! Preço ≈ $${currentPrice.toFixed(2)}, Qty: ${qty}`, 'ok');
+                if (sl > 0) log(`🔒 Stop Loss enviado: $${sl}`, 'warn');
+                if (tp > 0) log(`🎯 Take Profit enviado: $${tp}`, 'ok');
+
+                // Atualiza badge de posição
+                updatePosBadge(side, currentPrice, sl, tp);
+            }
+        } catch (err) {
+            log(`❌ Exceção: ${err.message}`, 'err');
+        } finally {
+            btnBuy.disabled = btnSell.disabled = false;
+        }
+    }
+
+    /* ── Badge de posição ── */
+    function updatePosBadge(side, price, sl, tp) {
+        const badge   = document.getElementById('pos-badge');
+        const badgeTxt = document.getElementById('pos-badge-text');
+        const isLong  = side === 'BUY';
+        badge.className  = 'position-badge ' + (isLong ? 'long' : 'short');
+        badgeTxt.textContent = isLong ? '▲ POSIÇÃO LONG ABERTA' : '▼ POSIÇÃO SHORT ABERTA';
+        document.getElementById('sum-entry').textContent = '$' + price.toFixed(2);
+        document.getElementById('sum-sl').textContent    = sl > 0 ? '$' + sl.toFixed(2) : '—';
+        document.getElementById('sum-tp').textContent    = tp > 0 ? '$' + tp.toFixed(2) : '—';
+    }
+
+    /* ── Log ── */
+    function log(msg, type = '') {
+        const box  = document.getElementById('log-box');
+        const now  = new Date().toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+        const line = document.createElement('div');
+        line.className = 'log-line ' + type;
+        line.innerHTML = `<span class="log-time">${now}</span><span class="log-msg">${msg}</span>`;
+        box.appendChild(line);
+        box.scrollTop = box.scrollHeight;
+        while (box.children.length > 50) box.removeChild(box.firstChild);
+    }
+</script>
+</body>
+</html>

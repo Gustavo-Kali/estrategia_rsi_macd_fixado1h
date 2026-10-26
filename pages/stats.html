@@ -1,0 +1,1202 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Análise Estatística Avançada de Backtest — ZENITH</title>
+    <link rel="stylesheet" href="/css/global.css">
+    <!-- Lightweight Charts para Curva de Equity -->
+    <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+        body {
+            background-color: var(--bg-dark, #0b0e11);
+            color: var(--text-primary, #eaecef);
+            font-family: var(--font-main, sans-serif);
+            margin: 0;
+            padding: 24px;
+            visibility: hidden; /* Controlado pelo Guard de Auth */
+            overflow-y: auto;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--bg-card, #1e2329);
+            border: 1px solid var(--border-color, #2b313a);
+            border-radius: 12px;
+            padding: 20px 24px;
+        }
+
+        .header-title h1 {
+            font-size: 22px;
+            font-weight: 800;
+            margin: 0 0 6px 0;
+            font-family: var(--font-display, sans-serif);
+        }
+
+        .header-title p {
+            font-size: 13px;
+            color: var(--text-muted, #848e9c);
+            margin: 0;
+        }
+
+        .evidence-badge {
+            padding: 8px 16px;
+            border-radius: 30px;
+            font-weight: 700;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        /* Warning banner */
+        .warning-banner {
+            background: rgba(240, 185, 11, 0.1);
+            border: 1px solid rgba(240, 185, 11, 0.3);
+            color: #f0b90b;
+            padding: 16px 20px;
+            border-radius: 8px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        /* Grid de Resumo */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 16px;
+        }
+
+        .summary-card {
+            background: var(--bg-card, #1e2329);
+            border: 1px solid var(--border-color, #2b313a);
+            border-radius: 8px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .summary-card .lbl {
+            font-size: 11px;
+            color: var(--text-muted, #848e9c);
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+        }
+
+        .summary-card .val {
+            font-size: 20px;
+            font-weight: 700;
+            font-family: monospace;
+        }
+
+        /* Estrutura de Sections */
+        .section-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 900px) {
+            .section-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card-box {
+            background: var(--bg-card, #1e2329);
+            border: 1px solid var(--border-color, #2b313a);
+            border-radius: 12px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .card-box h3 {
+            font-size: 16px;
+            font-weight: 700;
+            margin: 0;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            font-family: var(--font-display, sans-serif);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        /* Tabelas */
+        table.stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        table.stats-table th {
+            text-align: left;
+            padding: 10px 12px;
+            color: var(--text-muted, #848e9c);
+            font-weight: 600;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        table.stats-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        table.stats-table tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        /* Tooltips */
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            cursor: help;
+            color: var(--text-muted, #848e9c);
+            font-size: 11px;
+            background: rgba(255, 255, 255, 0.08);
+            width: 14px;
+            height: 14px;
+            line-height: 14px;
+            border-radius: 50%;
+            text-align: center;
+            margin-left: 4px;
+        }
+
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 240px;
+            background-color: #1c2024;
+            color: #fff;
+            text-align: left;
+            border-radius: 6px;
+            padding: 8px 12px;
+            position: absolute;
+            z-index: 100;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.2s;
+            font-size: 11px;
+            font-family: var(--font-main);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border-color);
+            line-height: 1.4;
+        }
+
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        /* Gráfico Canvas */
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            height: 220px;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.15);
+            border-radius: 6px;
+        }
+
+        /* Monte Carlo Inputs */
+        .mc-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            font-size: 12px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .input-group label {
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .input-group input, .input-group select {
+            background: #181a20;
+            border: 1px solid var(--border-color);
+            color: #fff;
+            padding: 6px 10px;
+            border-radius: 4px;
+            outline: none;
+            font-size: 12px;
+        }
+
+        .btn-action {
+            background: var(--color-purple, #a259ff);
+            color: #fff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            font-size: 12px;
+        }
+
+        .btn-action:hover {
+            opacity: 0.9;
+        }
+
+        /* Classes utilitárias */
+        .text-green { color: var(--color-green, #0ecb81); }
+        .text-red { color: var(--color-red, #f6465d); }
+        .text-yellow { color: var(--color-yellow, #f0b90b); }
+        .text-cyan { color: var(--color-cyan, #38b6ff); }
+
+        .align-right { text-align: right; }
+
+        /* Lista de trades scroll */
+        .table-wrap {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+        }
+
+        /* Abas ou Filtros da tabela */
+        .table-filters {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+
+        .filter-chip {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .filter-chip.active {
+            background: rgba(162, 89, 255, 0.2);
+            border-color: var(--color-purple);
+            color: #fff;
+        }
+    </style>
+</head>
+<body class="theme-zenith">
+
+<div class="container">
+    <!-- HEADER -->
+    <header>
+        <div class="header-title">
+            <h1 id="page-title">Análise de Backtest</h1>
+            <p id="page-subtitle">Carregando dados estatísticos...</p>
+        </div>
+        <div class="evidence-badge" id="evidence-level-badge">
+            <span class="status-dot pulsing" style="background:#848e9c"></span>
+            <span id="evidence-level-text">Calculando...</span>
+        </div>
+    </header>
+
+    <!-- BANNER DE AVISO (Para backtests antigos sem tradesList) -->
+    <div class="warning-banner" id="warning-banner" style="display:none">
+        ⚠️ <strong>Histórico de Operações Ausente</strong>: Este backtest foi executado em uma versão anterior do sistema.
+        A lista detalhada de operações individuais não está armazenada. Para habilitar as análises estatísticas robustas, 
+        simulação de Monte Carlo, correções de Sharpe/Sortino e gráficos de drawdown, por favor **execute o backtest novamente** para este par no painel do bot.
+    </div>
+
+    <!-- SUMÁRIO -->
+    <div class="summary-grid">
+        <div class="summary-card">
+            <span class="lbl">Lucro Líquido</span>
+            <span class="val" id="sum-net-pnl">---</span>
+        </div>
+        <div class="summary-card">
+            <span class="lbl">Rentabilidade</span>
+            <span class="val" id="sum-roi">---</span>
+        </div>
+        <div class="summary-card">
+            <span class="lbl">Win Rate</span>
+            <span class="val" id="sum-winrate">---</span>
+        </div>
+        <div class="summary-card">
+            <span class="lbl">Total Trades</span>
+            <span class="val" id="sum-trades">---</span>
+        </div>
+        <div class="summary-card">
+            <span class="lbl">Fator de Lucro</span>
+            <span class="val" id="sum-pf">---</span>
+        </div>
+        <div class="summary-card">
+            <span class="lbl">Max Drawdown</span>
+            <span class="val text-red" id="sum-max-dd">---</span>
+        </div>
+    </div>
+
+    <!-- SECTIONS 1: Gráfico Equity & Métricas de Risco -->
+    <div class="section-row">
+        <!-- Curva de Equity -->
+        <div class="card-box" style="grid-column: span 1;">
+            <h3>📈 Curva de Patrimônio & Drawdown</h3>
+            <div id="equity-chart-container" style="width:100%; height:260px; position:relative;">
+                <!-- Preenchido via Lightweight Charts -->
+            </div>
+        </div>
+
+        <!-- Métricas Avançadas -->
+        <div class="card-box">
+            <h3>🛡️ Métricas de Risco e Volatilidade</h3>
+            <table class="stats-table">
+                <tbody>
+                    <tr>
+                        <td>Sharpe Ratio
+                            <span class="tooltip">?<span class="tooltiptext">Mede o retorno excedente por unidade de volatilidade diária. Anualizado (24/7). Valores acima de 1.0 são considerados bons.</span></span>
+                        </td>
+                        <td class="align-right font-bold" id="metric-sharpe">---</td>
+                    </tr>
+                    <tr>
+                        <td>Sortino Ratio
+                            <span class="tooltip">?<span class="tooltiptext">Similar ao Sharpe, mas considera apenas a volatilidade dos retornos negativos (downside deviation). Melhor para avaliar risco real de perdas.</span></span>
+                        </td>
+                        <td class="align-right font-bold" id="metric-sortino">---</td>
+                    </tr>
+                    <tr>
+                        <td>Calmar Ratio
+                            <span class="tooltip">?<span class="tooltiptext">Mede a rentabilidade anualizada dividida pelo Drawdown Máximo histórico. Valores elevados mostram excelente relação retorno/dor.</span></span>
+                        </td>
+                        <td class="align-right font-bold" id="metric-calmar">---</td>
+                    </tr>
+                    <tr>
+                        <td>Volatilidade Diária
+                            <span class="tooltip">?<span class="tooltiptext">O desvio padrão dos retornos diários simulados a partir da curva de capital. Representa a oscilação diária esperada.</span></span>
+                        </td>
+                        <td class="align-right" id="metric-daily-vol">---</td>
+                    </tr>
+                    <tr>
+                        <td>Fator de Recuperação
+                            <span class="tooltip">?<span class="tooltiptext">Lucro Líquido dividido pelo drawdown máximo absoluto. Indica a velocidade/facilidade de recuperação da estratégia após perdas.</span></span>
+                        </td>
+                        <td class="align-right" id="metric-recovery-factor">---</td>
+                    </tr>
+                    <tr>
+                        <td>Duração Máx. Drawdown
+                            <span class="tooltip">?<span class="tooltiptext">O maior número de trades consecutivos em que o patrimônio permaneceu abaixo do seu pico anterior (debaixo d'água).</span></span>
+                        </td>
+                        <td class="align-right" id="metric-max-dd-duration">---</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- SECTIONS 2: Monte Carlo & Distribuição -->
+    <div class="section-row">
+        <!-- Simulação de Monte Carlo -->
+        <div class="card-box">
+            <h3>🎲 Simulação de Monte Carlo (1.000 iterações)</h3>
+            <div class="mc-inputs">
+                <div class="input-group">
+                    <label>Capital Inicial ($)</label>
+                    <input type="number" id="mc-capital" value="10000" step="500">
+                </div>
+                <div class="input-group">
+                    <label>Limite de Drawdown (%)</label>
+                    <input type="number" id="mc-dd-threshold" value="30" min="5" max="95">
+                </div>
+                <div class="input-group">
+                    <label>Horizonte (Trades)</label>
+                    <input type="number" id="mc-horizon" value="100" min="10" max="1000">
+                </div>
+                <div class="input-group" style="justify-content: flex-end;">
+                    <button class="btn-action" onclick="runMonteCarloFromUI()">Rodar Simulação</button>
+                </div>
+            </div>
+            <table class="stats-table">
+                <tbody>
+                    <tr>
+                        <td>Retorno Mediano (P50)</td>
+                        <td class="align-right font-bold text-green" id="mc-p50">---</td>
+                    </tr>
+                    <tr>
+                        <td>Pior Caminho Estimado (P5)</td>
+                        <td class="align-right text-red" id="mc-p5">---</td>
+                    </tr>
+                    <tr>
+                        <td>Caminho Otimista (P95)</td>
+                        <td class="align-right" id="mc-p95">---</td>
+                    </tr>
+                    <tr>
+                        <td>Probabilidade de Terminar Negativo</td>
+                        <td class="align-right font-bold" id="mc-prob-neg">---</td>
+                    </tr>
+                    <tr>
+                        <td>Risco de Drawdown > Limite</td>
+                        <td class="align-right font-bold" id="mc-prob-dd">---</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Distribuição de Retornos (Histograma) -->
+        <div class="card-box">
+            <h3>📊 Distribuição dos Retornos por Trade</h3>
+            <div class="canvas-container">
+                <canvas id="histogram-canvas"></canvas>
+            </div>
+            <table class="stats-table">
+                <thead>
+                    <tr>
+                        <th>Percentil</th>
+                        <th>Retorno por Operação (%)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>P5 (Piores 5%)</td>
+                        <td id="pct-p5" class="text-red">---</td>
+                    </tr>
+                    <tr>
+                        <td>P25 (Q1)</td>
+                        <td id="pct-p25">---</td>
+                    </tr>
+                    <tr>
+                        <td>P50 (Mediana)</td>
+                        <td id="pct-p50" class="font-bold">---</td>
+                    </tr>
+                    <tr>
+                        <td>P75 (Q3)</td>
+                        <td id="pct-p75">---</td>
+                    </tr>
+                    <tr>
+                        <td>P95 (Melhores 5%)</td>
+                        <td id="pct-p95" class="text-green">---</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- SECTIONS 3: Robustez Estatística & Segmentação Contextual -->
+    <div class="section-row">
+        <!-- Robustez -->
+        <div class="card-box">
+            <h3>🔬 Validação e Robustez Estatística</h3>
+            <table class="stats-table">
+                <tbody>
+                    <tr>
+                        <td>Significância (p-valor)
+                            <span class="tooltip">?<span class="tooltiptext">Teste t de Student. Mede a probabilidade do lucro ter sido aleatório (H0: Lucro = 0). p-valor < 0.05 indica que a vantagem estatística é provavelmente real.</span></span>
+                        </td>
+                        <td class="align-right font-bold" id="rob-pvalue">---</td>
+                    </tr>
+                    <tr>
+                        <td>Autocorrelação Lag 1
+                            <span class="tooltip">?<span class="tooltiptext">Mede se o resultado de um trade está correlacionado com o anterior. Valores próximos de 0 indicam independência. Valores positivos indicam tendência a streaks.</span></span>
+                        </td>
+                        <td class="align-right" id="rob-autocorr">---</td>
+                    </tr>
+                    <tr>
+                        <td>IC 95% do Win Rate
+                            <span class="tooltip">?<span class="tooltiptext">Intervalo de Confiança de Wilson. Indica a faixa de probabilidade provável do Win Rate real com base no número de trades.</span></span>
+                        </td>
+                        <td class="align-right" id="rob-ic-winrate">---</td>
+                    </tr>
+                    <tr>
+                        <td>Expectancy Matemática por Trade
+                            <span class="tooltip">?<span class="tooltiptext">O retorno líquido esperado por trade individual. Indica a vantagem média matemática da estratégia.</span></span>
+                        </td>
+                        <td class="align-right font-bold" id="rob-expectancy">---</td>
+                    </tr>
+                    <tr>
+                        <td>Concentração do Lucro (Melhores 5% dos trades)
+                            <span class="tooltip">?<span class="tooltiptext">Percentual de lucro bruto gerado pelos melhores 5% das operações. Valores acima de 60% indicam alta dependência de trades excepcionais isolados.</span></span>
+                        </td>
+                        <td class="align-right" id="rob-concentration">---</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Segmentações -->
+        <div class="card-box">
+            <h3>🎯 Desempenho por Direção e Tempo</h3>
+            <div class="table-filters" id="segment-switch">
+                <span class="filter-chip active" onclick="switchSegment('dir')">Lados</span>
+                <span class="filter-chip" onclick="switchSegment('day')">Dias da Semana</span>
+            </div>
+            <div id="segment-tables-container">
+                <table class="stats-table" id="segment-table-dir">
+                    <thead>
+                        <tr>
+                            <th>Direção</th>
+                            <th>Operações</th>
+                            <th>Win Rate</th>
+                            <th>Fator de Lucro</th>
+                            <th>P&L Líquido ($)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="segment-tbody-dir">
+                        <!-- Preenchido via JS -->
+                    </tbody>
+                </table>
+                <table class="stats-table" id="segment-table-day" style="display:none">
+                    <thead>
+                        <tr>
+                            <th>Dia da Semana</th>
+                            <th>Operações</th>
+                            <th>Win Rate</th>
+                            <th>Fator de Lucro</th>
+                            <th>P&L Líquido ($)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="segment-tbody-day">
+                        <!-- Preenchido via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECTIONS 4: Cenários de Custo -->
+    <div class="card-box">
+        <h3>💸 Simulação de Sensibilidade a Custos (Slippage + Taxas)</h3>
+        <table class="stats-table">
+            <thead>
+                <tr>
+                    <th>Cenário</th>
+                    <th>Slippage por Trade</th>
+                    <th>Taxas Totais (M/T)</th>
+                    <th>P&L Líquido Projetado ($)</th>
+                    <th>Rentabilidade Projetada</th>
+                    <th>Profit Factor Projetado</th>
+                    <th>Expectancy Projetada ($)</th>
+                </tr>
+            </thead>
+            <tbody id="costs-tbody">
+                <!-- Preenchido via JS -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- TABELA COMPLETA DE TRADES -->
+    <div class="card-box">
+        <h3>📋 Lista Completa de Operações Históricas</h3>
+        <div class="table-filters" id="table-filter-wrap">
+            <span class="filter-chip active" onclick="filterTradesTable('all')">Todos</span>
+            <span class="filter-chip" onclick="filterTradesTable('wins')">Vencedores</span>
+            <span class="filter-chip" onclick="filterTradesTable('losses')">Perdedores</span>
+            <span class="filter-chip" onclick="filterTradesTable('long')">LONG</span>
+            <span class="filter-chip" onclick="filterTradesTable('short')">SHORT</span>
+        </div>
+        <div class="table-wrap">
+            <table class="stats-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Tipo</th>
+                        <th>Entrada</th>
+                        <th>Saída</th>
+                        <th>Entrada ($)</th>
+                        <th>Saída ($)</th>
+                        <th>Stop Loss ($)</th>
+                        <th>Take Profit ($)</th>
+                        <th>Duração</th>
+                        <th>PnL Líquido ($)</th>
+                        <th>ROI (%)</th>
+                        <th>R-Mult.</th>
+                        <th>Motivo</th>
+                    </tr>
+                </thead>
+                <tbody id="trades-tbody">
+                    <!-- Preenchido via JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- LIMITAÇÕES DA ANÁLISE -->
+    <div class="card-box" style="background: rgba(255,255,255,0.02); border-color: rgba(255,255,255,0.06);">
+        <h3>⚠️ Limitações Importantes da Análise Estatística</h3>
+        <p style="font-size:12px; line-height:1.7; color: var(--text-muted); margin: 0;">
+            1. **Garantia Futura**: Resultados e rentabilidades históricas observadas são fatos do passado e **não constituem promessa ou garantia de desempenho futuro**. Condições de mercado mudam e a vantagem da estratégia pode se degradar.<br>
+            2. **Simulação de Monte Carlo**: Trata-se de uma estimativa probabilística de caminhos aleatórios condicionados à amostragem da performance histórica. Pressupõe independência estatística das distribuições e não prevê pânicos ou cisnes negros de mercado.<br>
+            3. **Dados Históricos (OHLC)**: Backtests baseados em candles OHLC possuem uma limitação inerente: caso o Stop Loss (SL) e o Take Profit (TP) sejam atingidos dentro da mesma vela de preço, o sistema assume uma política conservadora priorizando o acionamento do Stop Loss. Os preços reais de execução em mercado ao vivo podem diferir.<br>
+            4. **Custos Operacionais**: Slippage é uma estimativa de atrito de liquidez e as taxas são baseadas na tabela atual da Binance Futures. Desvios e latência de rede podem impactar negativamente a performance em produção real.
+        </p>
+    </div>
+</div>
+
+<!-- SCRIPTS -->
+<script src="/js/stats_engine.js"></script>
+<script type="module">
+    import { FirebaseSync } from '/js/firebase_sync.js';
+    window.FS = FirebaseSync;
+
+    // Guard de Autenticação
+    FirebaseSync.onAuthStateChanged((user) => {
+        if (!user) {
+            window.location.href = '/pages/login.html';
+        } else {
+            document.body.style.visibility = 'visible';
+            initStatsPage();
+        }
+    });
+</script>
+
+<script>
+    let _activeBacktest = null;
+    let _activeFilter = 'all';
+    let _equityChart = null;
+    let _equityLineSeries = null;
+
+    async function initStatsPage() {
+        const params = new URLSearchParams(window.location.search);
+        const docId = params.get('id');
+        const botId = params.get('botId');
+        const symbol = params.get('symbol');
+
+        if (!docId && (!botId || !symbol)) {
+            document.getElementById('page-subtitle').innerHTML = '<span class="text-red">Erro: Parâmetros de consulta ausentes.</span>';
+            return;
+        }
+
+        try {
+            let data = null;
+            if (docId) {
+                data = await window.FS.getHistoricoById(docId);
+            } else {
+                // Fallback: Busca o último backtest do Firebase para o par e bot específicos
+                document.getElementById('page-subtitle').innerText = `Procurando último backtest para ${symbol}...`;
+                // Para simplificar, consultaremos a coleção ordenando pelo mais recente
+                const rows = await new Promise((resolve) => {
+                    const unsub = window.FS.subscribeToHistorico((list) => {
+                        unsub();
+                        resolve(list);
+                    }, 50);
+                });
+                data = rows.find(r => r.symbol === symbol && r.botId === botId && r.tipo === 'BACKTEST');
+            }
+
+            if (!data) {
+                document.getElementById('page-subtitle').innerHTML = '<span class="text-red">Nenhum registro de backtest correspondente encontrado no banco de dados.</span>';
+                return;
+            }
+
+            _activeBacktest = data;
+            renderStatsData(data);
+
+        } catch (err) {
+            console.error('Erro ao inicializar página de estatísticas:', err);
+            document.getElementById('page-subtitle').innerHTML = `<span class="text-red">Erro ao carregar dados: ${err.message}</span>`;
+        }
+    }
+
+    function renderStatsData(data) {
+        const titleEl = document.getElementById('page-title');
+        const subtitleEl = document.getElementById('page-subtitle');
+        const warningBanner = document.getElementById('warning-banner');
+
+        titleEl.innerText = `Análise Estatística — ${data.symbol || 'BTCUSDT'} (${data.interval || '30m'})`;
+        const dateRange = (data.startDate && data.endDate) ? `${data.startDate} → ${data.endDate}` : 'Período não definido';
+        subtitleEl.innerHTML = `Estratégia: <strong>${data.bot || 'ZENITH'}</strong> &bull; Período de Simulação: <strong>${dateRange}</strong>`;
+
+        // Verifica se possui tradesList para rodar o motor
+        const trades = data.tradesList || [];
+        if (trades.length === 0) {
+            warningBanner.style.display = 'block';
+            renderSummaryOnly(data);
+            return;
+        }
+
+        warningBanner.style.display = 'none';
+
+        // Executa Motor Estatístico (StatsEngine)
+        const initialBalance = data.saldoFinal ? (data.saldoFinal - data.lucroUsdt) : 10000;
+        const stats = StatsEngine.calculateFundamentalStats(trades, initialBalance);
+        const dd = StatsEngine.calculateEquityAndDrawdowns(trades, initialBalance);
+        const ratios = StatsEngine.calculateAdvancedRatios(trades, initialBalance, data.interval);
+
+        // Preenche resumo
+        const fmtD = (v) => v != null ? (v >= 0 ? '+' : '-') + '$' + Math.abs(v).toFixed(2) : '---';
+        const fmtP = (v) => v != null ? (v >= 0 ? '+' : '') + v.toFixed(2) + '%' : '---';
+
+        document.getElementById('sum-net-pnl').innerText = fmtD(stats.netProfit);
+        const netProfitPct = (stats.netProfit / initialBalance) * 100;
+        document.getElementById('sum-roi').innerText = fmtP(netProfitPct);
+        document.getElementById('sum-roi').className = stats.netProfit >= 0 ? 'val text-green' : 'val text-red';
+        document.getElementById('sum-net-pnl').className = stats.netProfit >= 0 ? 'val text-green' : 'val text-red';
+        
+        document.getElementById('sum-winrate').innerText = `${stats.winRate.toFixed(1)}%`;
+        document.getElementById('sum-trades').innerText = stats.total;
+        document.getElementById('sum-pf').innerText = stats.profitFactor.toFixed(2);
+        document.getElementById('sum-max-dd').innerText = `-${dd.maxDrawdownPct.toFixed(2)}%`;
+
+        // Preenche métricas de risco
+        document.getElementById('metric-sharpe').innerText = ratios.sharpe.toFixed(2);
+        document.getElementById('metric-sharpe').className = ratios.sharpe >= 1.0 ? 'align-right font-bold text-green' : (ratios.sharpe > 0 ? 'align-right font-bold text-cyan' : 'align-right font-bold text-red');
+        document.getElementById('metric-sortino').innerText = ratios.sortino.toFixed(2);
+        document.getElementById('metric-sortino').className = ratios.sortino >= 1.0 ? 'align-right font-bold text-green' : (ratios.sortino > 0 ? 'align-right font-bold text-cyan' : 'align-right font-bold text-red');
+        document.getElementById('metric-calmar').innerText = ratios.calmar.toFixed(2);
+        document.getElementById('metric-daily-vol').innerText = `${ratios.dailyVol}%`;
+        document.getElementById('metric-recovery-factor').innerText = dd.recoveryFactor ? dd.recoveryFactor.toFixed(2) : '---';
+        document.getElementById('metric-max-dd-duration').innerText = `${dd.maxDrawdownDuration} ops`;
+
+        // Badge de Evidência
+        const badge = StatsEngine.classifyEvidence(stats, ratios, dd);
+        const badgeEl = document.getElementById('evidence-level-badge');
+        const badgeText = document.getElementById('evidence-level-text');
+        badgeEl.style.borderColor = badge.color;
+        badgeEl.style.color = badge.color;
+        badgeText.innerText = badge.level;
+        badgeText.title = badge.description;
+
+        // Distribuição de retornos (Percentis e Histograma)
+        const pcts = StatsEngine.calculatePercentiles(stats.rois);
+        document.getElementById('pct-p5').innerText = `${pcts.p5.toFixed(2)}%`;
+        document.getElementById('pct-p25').innerText = `${pcts.p25.toFixed(2)}%`;
+        document.getElementById('pct-p50').innerText = `${pcts.p50.toFixed(2)}%`;
+        document.getElementById('pct-p75').innerText = `${pcts.p75.toFixed(2)}%`;
+        document.getElementById('pct-p95').innerText = `${pcts.p95.toFixed(2)}%`;
+
+        renderHistogram(stats.rois);
+
+        // Curva de Equity (Lightweight Charts)
+        renderEquityCurve(dd.equityCurve);
+
+        // Monte Carlo (UI)
+        document.getElementById('mc-capital').value = initialBalance.toFixed(0);
+        runMonteCarloFromUI();
+
+        // Robustez
+        const testT = StatsEngine.calculateStudentTTest(stats.netProfits);
+        document.getElementById('rob-pvalue').innerText = `${testT.pValue} (${testT.significant ? 'Significativo' : 'Não Significativo'})`;
+        document.getElementById('rob-pvalue').className = testT.significant ? 'align-right font-bold text-green' : 'align-right font-bold text-yellow';
+
+        const autocorr = StatsEngine.calculateAutocorrelationLag1(stats.netProfits);
+        document.getElementById('rob-autocorr').innerText = autocorr.toFixed(3);
+        document.getElementById('rob-autocorr').className = Math.abs(autocorr) > 0.15 ? 'align-right text-yellow' : 'align-right text-green';
+
+        const winRateCI = StatsEngine.calculateWinRateConfidenceInterval(stats.wins, stats.total);
+        document.getElementById('rob-ic-winrate').innerText = `[${winRateCI.lower}% – ${winRateCI.upper}%]`;
+
+        document.getElementById('rob-expectancy').innerText = fmtD(stats.expectancy);
+        document.getElementById('rob-expectancy').className = stats.expectancy >= 0 ? 'align-right font-bold text-green' : 'align-right font-bold text-red';
+
+        const conc = StatsEngine.analyzeProfitConcentration(stats.netProfits);
+        if (conc && typeof conc.best5Pct === 'number') {
+            document.getElementById('rob-concentration').innerText = `${conc.best5Pct.toFixed(1)}% do lucro`;
+            document.getElementById('rob-concentration').className = conc.best5Pct > 60 ? 'align-right text-red' : 'align-right text-green';
+        } else {
+            document.getElementById('rob-concentration').innerText = '---';
+            document.getElementById('rob-concentration').className = 'align-right';
+        }
+
+        // Segmentação
+        const seg = StatsEngine.segmentContext(trades);
+        renderSegmentsTable(seg);
+
+        // Cenários de Custo
+        renderCostsTable(trades, initialBalance, data.interval || '30m');
+
+        // Tabela completa de trades
+        renderTradesTable(trades);
+    }
+
+    function renderSummaryOnly(data) {
+        // Renderização básica sem tradesList
+        const fmtD = (v) => v != null ? (v >= 0 ? '+' : '-') + '$' + Math.abs(v).toFixed(2) : '---';
+        const fmtP = (v) => v != null ? (v >= 0 ? '+' : '') + v.toFixed(2) + '%' : '---';
+
+        document.getElementById('sum-net-pnl').innerText = fmtD(data.lucroUsdt);
+        document.getElementById('sum-roi').innerText = fmtP(data.rentabilidadePct);
+        document.getElementById('sum-winrate').innerText = `${(data.winRate || 0).toFixed(1)}%`;
+        document.getElementById('sum-trades').innerText = data.totalTrades || 0;
+        document.getElementById('sum-pf').innerText = (data.profitFactor || 0).toFixed(2);
+        document.getElementById('sum-max-dd').innerText = `-${(data.maxDrawdownPct || 0).toFixed(2)}%`;
+        
+        document.getElementById('evidence-level-text').innerText = 'Requer re-execução';
+    }
+
+    function renderEquityCurve(curveData) {
+        const container = document.getElementById('equity-chart-container');
+        container.innerHTML = ''; // Limpa anterior
+
+        _equityChart = LightweightCharts.createChart(container, {
+            layout: {
+                background: { color: '#1e2329' },
+                textColor: '#848e9c',
+            },
+            grid: {
+                verticalLines: { color: 'rgba(255, 255, 255, 0.05)' },
+                horizontalLines: { color: 'rgba(255, 255, 255, 0.05)' },
+            },
+            timeScale: {
+                borderColor: 'rgba(255, 255, 255, 0.1)',
+                timeVisible: true,
+            },
+            rightPriceScale: {
+                borderColor: 'rgba(255, 255, 255, 0.1)',
+            }
+        });
+
+        _equityLineSeries = _equityChart.addLineSeries({
+            color: '#0ecb81',
+            lineWidth: 2,
+            title: 'Saldo ($)'
+        });
+
+        // Mapeia data para lightweight charts
+        const formatted = curveData.map((d, index) => {
+            // Se possui timestamp UNIX usa ele, senão usa index
+            return {
+                time: d.timestamp ? d.timestamp : index,
+                value: d.value
+            };
+        });
+
+        // Garante que o time está ordenado
+        formatted.sort((a,b) => a.time - b.time);
+
+        // Se houver datas duplicadas por trades no mesmo segundo, soma um delta para manter chave única no Lightweight Charts
+        for (let i = 1; i < formatted.length; i++) {
+            if (formatted[i].time <= formatted[i - 1].time) {
+                formatted[i].time = formatted[i - 1].time + 1;
+            }
+        }
+
+        _equityLineSeries.setData(formatted);
+        _equityChart.timeScale().fitContent();
+    }
+
+    function renderHistogram(rois) {
+        const canvas = document.getElementById('histogram-canvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        
+        // Limpa canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (rois.length === 0) return;
+
+        // Cria 10 bins/intervalos
+        const min = Math.min(...rois);
+        const max = Math.max(...rois);
+        const range = max - min;
+        const numBins = 10;
+        const binSize = range / numBins;
+
+        const bins = new Array(numBins).fill(0);
+        rois.forEach(v => {
+            let binIdx = Math.floor((v - min) / binSize);
+            if (binIdx >= numBins) binIdx = numBins - 1;
+            bins[binIdx]++;
+        });
+
+        // Desenha barras
+        const padding = 30;
+        const width = canvas.width - padding * 2;
+        const height = canvas.height - padding * 2;
+        const barWidth = width / numBins - 4;
+        const maxCount = Math.max(...bins, 1);
+
+        bins.forEach((count, i) => {
+            const barHeight = (count / maxCount) * height;
+            const x = padding + i * (width / numBins) + 2;
+            const y = canvas.height - padding - barHeight;
+
+            // Define cor (verde para retornos positivos, vermelho para negativos)
+            const valAtBin = min + i * binSize;
+            ctx.fillStyle = valAtBin >= 0 ? 'rgba(14, 203, 129, 0.45)' : 'rgba(246, 70, 93, 0.45)';
+            ctx.strokeStyle = valAtBin >= 0 ? '#0ecb81' : '#f6465d';
+            ctx.lineWidth = 1;
+
+            ctx.fillRect(x, y, barWidth, barHeight);
+            ctx.strokeRect(x, y, barWidth, barHeight);
+
+            // Desenha número sobre a barra
+            if (count > 0) {
+                ctx.fillStyle = '#848e9c';
+                ctx.font = '9px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(count, x + barWidth / 2, y - 4);
+            }
+        });
+
+        // Desenha eixos
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(padding, canvas.height - padding);
+        ctx.lineTo(canvas.width - padding, canvas.height - padding);
+        ctx.stroke();
+
+        // Legenda dos extremos
+        ctx.fillStyle = '#848e9c';
+        ctx.font = '10px monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText(`${min.toFixed(1)}%`, padding, canvas.height - padding + 15);
+        ctx.textAlign = 'right';
+        ctx.fillText(`${max.toFixed(1)}%`, canvas.width - padding, canvas.height - padding + 15);
+    }
+
+    function runMonteCarloFromUI() {
+        if (!_activeBacktest || !_activeBacktest.tradesList) return;
+        const trades = _activeBacktest.tradesList;
+        const rois = trades.map(t => t.roi);
+
+        const capital = parseFloat(document.getElementById('mc-capital').value) || 10000;
+        const threshold = parseFloat(document.getElementById('mc-dd-threshold').value) || 30;
+        const horizon = parseInt(document.getElementById('mc-horizon').value) || 100;
+
+        // Executa simulação
+        const mc = StatsEngine.runMonteCarloSimulation(rois, capital, 1000, horizon, capital * 0.1, threshold);
+
+        if (!mc) return;
+
+        const fmtD = (v) => '$' + Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
+        document.getElementById('mc-p50').innerText = fmtD(mc.p50);
+        document.getElementById('mc-p5').innerText = fmtD(mc.p5);
+        document.getElementById('mc-p95').innerText = fmtD(mc.p95);
+        document.getElementById('mc-prob-neg').innerText = `${mc.probNegativePct.toFixed(1)}%`;
+        document.getElementById('mc-prob-neg').className = mc.probNegativePct > 15 ? 'align-right font-bold text-red' : 'align-right font-bold text-green';
+        document.getElementById('mc-prob-dd').innerText = `${mc.probExceededDrawdownPct.toFixed(1)}%`;
+        document.getElementById('mc-prob-dd').className = mc.probExceededDrawdownPct > 20 ? 'align-right font-bold text-red' : 'align-right font-bold text-green';
+    }
+
+    function renderSegmentsTable(seg) {
+        const tbodyDir = document.getElementById('segment-tbody-dir');
+        const tbodyDay = document.getElementById('segment-tbody-day');
+
+        // Lados (LONG/SHORT)
+        tbodyDir.innerHTML = Object.keys(seg.direction).map(k => {
+            const v = seg.direction[k];
+            if (v.trades === 0) return '';
+            return `<tr>
+                <td><strong>${k}</strong></td>
+                <td>${v.trades}</td>
+                <td>${v.winRate}%</td>
+                <td>${v.pf.toFixed(2)}</td>
+                <td class="${v.pnl >= 0 ? 'text-green font-bold' : 'text-red font-bold'}">${v.pnl >= 0 ? '+' : ''}$${v.pnl.toFixed(2)}</td>
+            </tr>`;
+        }).join('');
+
+        // Dias da Semana
+        tbodyDay.innerHTML = Object.keys(seg.dayOfWeek).map(k => {
+            const v = seg.dayOfWeek[k];
+            if (v.trades === 0) return '';
+            return `<tr>
+                <td><strong>${k}</strong></td>
+                <td>${v.trades}</td>
+                <td>${v.winRate}%</td>
+                <td>${v.pf.toFixed(2)}</td>
+                <td class="${v.pnl >= 0 ? 'text-green font-bold' : 'text-red font-bold'}">${v.pnl >= 0 ? '+' : ''}$${v.pnl.toFixed(2)}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    function switchSegment(type) {
+        document.querySelectorAll('#segment-switch .filter-chip').forEach(c => c.classList.remove('active'));
+        document.getElementById('segment-table-dir').style.display = 'none';
+        document.getElementById('segment-table-day').style.display = 'none';
+
+        if (type === 'dir') {
+            document.querySelector('#segment-switch .filter-chip:nth-child(1)').classList.add('active');
+            document.getElementById('segment-table-dir').style.display = 'table';
+        } else {
+            document.querySelector('#segment-switch .filter-chip:nth-child(2)').classList.add('active');
+            document.getElementById('segment-table-day').style.display = 'table';
+        }
+    }
+
+    function renderCostsTable(trades, initialBalance, interval) {
+        const tbody = document.getElementById('costs-tbody');
+
+        const calcScenario = (slippageRate, feeMaker, feeTaker) => {
+            let balance = initialBalance;
+            let wins = 0;
+            let grossProfit = 0;
+            let grossLoss = 0;
+
+            trades.forEach(t => {
+                const qty = t.quantity || 0.002;
+                const isLong = t.type === 'long';
+                
+                // Aplica slippage ao preço de execução
+                const entrySlippage = t.entryPrice * slippageRate;
+                const exitSlippage = t.exitPrice * slippageRate;
+
+                // LONG: entrada maior, saída menor | SHORT: entrada menor, saída maior
+                const entryPriceEff = isLong ? (t.entryPrice + entrySlippage) : (t.entryPrice - entrySlippage);
+                const exitPriceEff = isLong ? (t.exitPrice - exitSlippage) : (t.exitPrice + exitSlippage);
+
+                // Taxas
+                const feeRateExit = (t.reason === 'tp') ? feeMaker : feeTaker;
+                const feeEnt = qty * entryPriceEff * feeTaker;
+                const feeEx = qty * exitPriceEff * feeRateExit;
+                const feesTotal = feeEnt + feeEx;
+
+                // Profit
+                const gross = isLong ? qty * (exitPriceEff - entryPriceEff) : qty * (entryPriceEff - exitPriceEff);
+                const net = gross - feesTotal;
+
+                balance += net;
+                if (net > 0) {
+                    grossProfit += net;
+                    wins++;
+                } else {
+                    grossLoss += Math.abs(net);
+                }
+            });
+
+            const netPnl = balance - initialBalance;
+            const roi = (netPnl / initialBalance) * 100;
+            const pf = grossLoss > 0 ? (grossProfit / grossLoss) : (grossProfit > 0 ? 99.9 : 0);
+            const expectancy = trades.length > 0 ? (netPnl / trades.length) : 0;
+
+            return {
+                pnl: netPnl,
+                roi: roi,
+                pf: pf,
+                expectancy: expectancy
+            };
+        };
+
+        const scOtimista   = calcScenario(0.0000, 0.0001, 0.0002); // 0% slippage, taxas Binance VIP (0.01% Maker / 0.02% Taker)
+        const scBase       = calcScenario(0.0002, 0.0002, 0.0004); // 0.02% slippage, taxas normais (0.02% Maker / 0.04% Taker)
+        const scPessimista = calcScenario(0.0005, 0.0003, 0.0006); // 0.05% slippage, taxas cheias (0.03% Maker / 0.06% Taker)
+
+        const fmtD = (v) => (v >= 0 ? '+' : '-') + '$' + Math.abs(v).toFixed(2);
+        const fmtP = (v) => (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
+
+        tbody.innerHTML = `
+            <tr>
+                <td class="text-green"><strong>Otimista (Sem atrito)</strong></td>
+                <td>0.00%</td>
+                <td>0.01% M / 0.02% T</td>
+                <td class="${scOtimista.pnl >= 0 ? 'text-green' : 'text-red'} font-bold">${fmtD(scOtimista.pnl)}</td>
+                <td class="${scOtimista.pnl >= 0 ? 'text-green' : 'text-red'}">${fmtP(scOtimista.roi)}</td>
+                <td>${scOtimista.pf.toFixed(2)}</td>
+                <td>$${scOtimista.expectancy.toFixed(2)}</td>
+            </tr>
+            <tr>
+                <td class="text-cyan"><strong>Base (Esperado)</strong></td>
+                <td>0.02%</td>
+                <td>0.02% M / 0.04% T</td>
+                <td class="${scBase.pnl >= 0 ? 'text-green' : 'text-red'} font-bold">${fmtD(scBase.pnl)}</td>
+                <td class="${scBase.pnl >= 0 ? 'text-green' : 'text-red'}">${fmtP(scBase.roi)}</td>
+                <td>${scBase.pf.toFixed(2)}</td>
+                <td>$${scBase.expectancy.toFixed(2)}</td>
+            </tr>
+            <tr>
+                <td class="text-yellow"><strong>Pessimista (Alta latência)</strong></td>
+                <td>0.05%</td>
+                <td>0.03% M / 0.06% T</td>
+                <td class="${scPessimista.pnl >= 0 ? 'text-green' : 'text-red'} font-bold">${fmtD(scPessimista.pnl)}</td>
+                <td class="${scPessimista.pnl >= 0 ? 'text-green' : 'text-red'}">${fmtP(scPessimista.roi)}</td>
+                <td>${scPessimista.pf.toFixed(2)}</td>
+                <td>$${scPessimista.expectancy.toFixed(2)}</td>
+            </tr>
+        `;
+    }
+
+    function renderTradesTable(trades) {
+        const tbody = document.getElementById('trades-tbody');
+
+        const fmtDate = (sec) => {
+            if (!sec) return '---';
+            const d = new Date(sec * 1000);
+            return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        };
+
+        const fmtDur = (sec) => {
+            if (!sec) return '---';
+            const m = Math.floor(sec / 60);
+            if (m < 60) return `${m}m`;
+            const h = Math.floor(m / 60);
+            const remM = m % 60;
+            return `${h}h${remM}m`;
+        };
+
+        tbody.innerHTML = trades.map((t, index) => {
+            const isWin = t.netProfit > 0;
+            const typeBadge = t.type === 'long' ? '<span class="text-green">▲ LONG</span>' : '<span class="text-red">▼ SHORT</span>';
+            const rMultText = t.rMultiple != null ? `${t.rMultiple > 0 ? '+' : ''}${t.rMultiple.toFixed(1)}R` : '---';
+
+            // Classes de linha para filtro
+            const rowClass = `trade-row ${isWin ? 'tr-win' : 'tr-loss'} tr-${t.type}`;
+
+            return `<tr class="${rowClass}">
+                <td>${t.id || index + 1}</td>
+                <td>${typeBadge}</td>
+                <td style="font-size:11px;color:var(--text-muted);">${fmtDate(t.entryTime)}</td>
+                <td style="font-size:11px;color:var(--text-muted);">${fmtDate(t.exitTime)}</td>
+                <td>$${Number(t.entryPrice).toFixed(1)}</td>
+                <td>$${Number(t.exitPrice).toFixed(1)}</td>
+                <td class="text-red">$${t.stopLoss ? Number(t.stopLoss).toFixed(0) : '---'}</td>
+                <td class="text-green">$${t.takeProfit ? Number(t.takeProfit).toFixed(0) : '---'}</td>
+                <td>${fmtDur(t.duration)}</td>
+                <td class="${isWin ? 'text-green' : 'text-red'} font-bold">${t.netProfit >= 0 ? '+' : ''}$${Number(t.netProfit).toFixed(2)}</td>
+                <td class="${isWin ? 'text-green' : 'text-red'}">${t.roi >= 0 ? '+' : ''}${Number(t.roi).toFixed(2)}%</td>
+                <td class="${isWin ? 'text-green' : 'text-red'}">${rMultText}</td>
+                <td style="text-transform:uppercase;font-size:10px;">${t.reason || '---'}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    function filterTradesTable(filter) {
+        document.querySelectorAll('#table-filter-wrap .filter-chip').forEach(c => c.classList.remove('active'));
+
+        const rows = document.querySelectorAll('.trade-row');
+        rows.forEach(row => {
+            row.style.display = 'none';
+        });
+
+        if (filter === 'all') {
+            document.querySelector('#table-filter-wrap .filter-chip:nth-child(1)').classList.add('active');
+            rows.forEach(r => r.style.display = 'table-row');
+        } else if (filter === 'wins') {
+            document.querySelector('#table-filter-wrap .filter-chip:nth-child(2)').classList.add('active');
+            document.querySelectorAll('.tr-win').forEach(r => r.style.display = 'table-row');
+        } else if (filter === 'losses') {
+            document.querySelector('#table-filter-wrap .filter-chip:nth-child(3)').classList.add('active');
+            document.querySelectorAll('.tr-loss').forEach(r => r.style.display = 'table-row');
+        } else if (filter === 'long') {
+            document.querySelector('#table-filter-wrap .filter-chip:nth-child(4)').classList.add('active');
+            document.querySelectorAll('.tr-long').forEach(r => r.style.display = 'table-row');
+        } else if (filter === 'short') {
+            document.querySelector('#table-filter-wrap .filter-chip:nth-child(5)').classList.add('active');
+            document.querySelectorAll('.tr-short').forEach(r => r.style.display = 'table-row');
+        }
+    }
+</script>
+
+</body>
+</html>

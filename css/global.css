@@ -1,0 +1,57 @@
+/* ============================================================
+   global.css — Variáveis CSS, Reset e Base Compartilhada
+   Usado por: index.html, strategy_rsi_macd.html,
+              tendencias_medias_movel.html, strategy_bandas_bollinger.html
+   ============================================================ */
+
+/* --- Fontes compartilhadas --- */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@600;800&display=swap');
+
+/* --- Reset --- */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+/* --- Variáveis de cor compartilhadas --- */
+:root {
+    /* Paleta de Trading (painéis de bot) */
+    --bg-dark:      #0b0e11;
+    --bg-card:      #1e2329;
+    --bg-toolbar:   #181a20;
+    --border-color: #2b313a;
+    --text-primary: #eaecef;
+    --text-muted:   #848e9c;
+    --color-green:  #0ecb81;
+    --color-red:    #f6465d;
+    --color-yellow: #f0b90b;
+    --color-cyan:   #38b6ff;
+    --color-purple: #a259ff;
+
+    /* Paleta da Home (index) */
+    --bg-base:           #07050e;
+    --bg-deep:           #0e0a1f;
+    --bg-card-home:      rgba(19, 14, 38, 0.85);
+    --border-card:       rgba(168, 85, 247, 0.22);
+    --border-card-hover: rgba(192, 132, 252, 0.5);
+    --accent-purple:     #a855f7;
+    --accent-cyan:       #38bdf8;
+    --accent-yellow:     #f0b90b;
+    --text-main:         #f8fafc;
+
+    /* Fontes */
+    --font-main:    'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-body:    'Inter', system-ui, -apple-system, sans-serif;
+    --font-display: 'Plus Jakarta Sans', sans-serif;
+
+    /* Layout dos painéis de bot */
+    --panel-right-w: 268px;
+}
+
+/* --- Utilitários de cor (usados nos painéis de bot) --- */
+.text-green  { color: var(--color-green)  !important; }
+.text-red    { color: var(--color-red)    !important; }
+.text-yellow { color: var(--color-yellow) !important; }
+.text-cyan   { color: var(--color-cyan)   !important; }
+.text-white  { color: #fff !important; }

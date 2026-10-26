@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZENITH — AI Trading Bot Dashboard</title>
+    <link rel="stylesheet" href="/css/global.css">
+    <link rel="stylesheet" href="/css/strategy.css">
+    <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+
+<body class="theme-zenith">
+
+    <!-- Guard de Autenticação -->
+    <script type="module">
+        import { FirebaseSync } from '/js/firebase_sync.js';
+        document.body.style.visibility = 'hidden';
+        FirebaseSync.onAuthStateChanged((user) => {
+            if (!user) { window.location.href = '/pages/login.html'; return; }
+            document.body.style.visibility = 'visible';
+        });
+    </script>
+
+    <div id="app">
+
+        <!-- HEADER -->
+        <header id="header">
+            <div class="logo-wrap">
+                <div class="logo-icon">&#9889;</div>
+                <div>
+                    <h1 class="logo-title">ZENITH &bull; AI Trading Bot</h1>
+                    <p class="logo-subtitle">Mercado de Futuros &bull; An&aacute;lise T&eacute;cnica em Tempo Real</p>
+                </div>
+            </div>
+
+            <div id="price-strip">
+                <span class="price-big" id="strip-price">---</span>
+                <div class="price-info"><span>M&aacute;x 24h</span><span id="strip-high">---</span></div>
+                <div class="price-info"><span>M&iacute;n 24h</span><span id="strip-low">---</span></div>
+                <div class="price-info"><span>Fech Ant.</span><span id="strip-close">---</span></div>
+                <div class="price-info"><span>MA 9</span><span id="strip-ma9" class="text-cyan">---</span></div>
+                <div class="price-info"><span>MA 96</span><span id="strip-ma96" class="text-yellow">---</span></div>
+            </div>
+
+            <button class="tb-btn" id="btn-ver-resultados" onclick="openResultsModal()" style="display:inline-flex;align-items:center;gap:6px;background:rgba(192,132,252,0.12);border-color:rgba(192,132,252,0.45);color:#c084fc;font-weight:700;">
+                &#128202; Ver Resultados
+            </button>
+
+
+            <div id="conn-status">
+                <span class="status-dot pulsing" id="status-dot"></span>
+                <span id="status-text">Conectando...</span>
+            </div>
+        </header>
+
+        <!-- TOOLBAR -->
+        <nav id="toolbar">
+            <span class="tb-label">Par:</span>
+            <select class="tb-select" id="select-symbol" onchange="changeSymbol(this.value)">
+                <option value="BTCUSDT">₿ BTC/USDT — Bitcoin</option>
+                <option value="ETHUSDT">Ξ ETH/USDT — Ethereum</option>
+                <option value="SOLUSDT">◎ SOL/USDT — Solana</option>
+                <option value="BNBUSDT">🟡 BNB/USDT — BNB Chain</option>
+                <option value="XRPUSDT">✕ XRP/USDT — Ripple</option>
+                <option value="ADAUSDT">₳ ADA/USDT — Cardano</option>
+                <option value="DOGEUSDT">🐶 DOGE/USDT — Dogecoin</option>
+                <option value="AVAXUSDT">🔺 AVAX/USDT — Avalanche</option>
+                <option value="LINKUSDT">🔗 LINK/USDT — Chainlink</option>
+                <option value="NEARUSDT">Ⓝ NEAR/USDT — Near Protocol</option>
+                <option value="DOTUSDT">● DOT/USDT — Polkadot</option>
+                <option value="SUIUSDT">💧 SUI/USDT — Sui Network</option>
+                <option value="TRXUSDT">🔺 TRX/USDT — TRON</option>
+                <option value="ETCUSDT">🟩 ETC/USDT — Ethereum Classic</option>
+            </select>
+            <div class="tb-sep"></div>
+            <span class="tb-label">Timeframe:</span>
+            <button class="tb-btn" data-interval="1m">1m</button>
+            <button class="tb-btn" data-interval="15m">15m</button>
+            <button class="tb-btn active" data-interval="30m">30m</button>
+            <button class="tb-btn" data-interval="1h">1h</button>
+            <button class="tb-btn" data-interval="1d">1d</button>
+            <div class="tb-sep"></div>
+            <span class="tb-label">M&eacute;dias:</span>
+            <button class="tb-btn active" id="btn-toggle-ma" onclick="toggleMovingAverages()">MA 9/96: ON</button>
+            <div class="tb-sep"></div>
+            <span class="tb-label">Layout:</span>
+            <button class="tb-btn active" id="btn-layout-binance" onclick="applyPreset('binance')">&#9889;
+                Padr&atilde;o</button>
+            <button class="tb-btn" id="btn-layout-grid" onclick="applyPreset('grid')">&#128202; Grade</button>
+            <button class="tb-btn" id="btn-layout-cols3" onclick="applyPreset('cols3')">&#128208; 3 Colunas</button>
+            <button class="tb-btn" id="btn-layout-stack" onclick="applyPreset('stack')">&#129668; Empilhado</button>
+            <div class="tb-sep"></div>
+            <button class="tb-btn" id="btn-toggle-backtest" onclick="toggleBacktestBar()">&#129514; Backtest</button>
+        </nav>
+
+        <!-- BACKTEST BAR -->
+        <section id="backtest-bar">
+            <span class="bt-label">&#129514; Backtest RSI+MACD</span>
+            <button class="btn-bt" id="btn-bt-start" onclick="backtestStart()">&#9654; Iniciar Teste</button>
+            <button class="btn-bt" id="btn-bt-pause" onclick="backtestPause()">&#9208; Pausar</button>
+            <button class="btn-bt" id="btn-bt-stop" onclick="backtestStop()">&#9209; Parar</button>
+            <button class="btn-bt" id="btn-bt-reset" onclick="backtestReset()"
+                style="display:none; background: rgba(246,70,93,0.15); border-color: rgba(246,70,93,0.5); color: #f6465d;">&#128260;
+                Reiniciar do Zero</button>
+            <span class="tb-label">Qtd BTC:</span>
+            <input type="number" id="bt-qty" value="0.002" step="0.001" min="0.001"
+                style="width:70px;background:#181a20;border:1px solid var(--border-color);color:var(--text-primary);border-radius:4px;padding:3px 6px;font-size:11px;font-weight:600;outline:none;-webkit-user-select:text;user-select:text;">
+            <span class="tb-label">Velocidade:</span>
+            <button class="btn-speed" data-speed="800" onclick="setSpeed(this)">1x</button>
+            <button class="btn-speed" data-speed="80" onclick="setSpeed(this)">10x</button>
+            <button class="btn-speed active" data-speed="20" onclick="setSpeed(this)">50x</button>
+            <button class="btn-speed" data-speed="5" onclick="setSpeed(this)">200x</button>
+            <button class="btn-speed" data-speed="0" onclick="setSpeed(this)">&#9889; Instant</button>
+            <div class="bt-prog-wrap">
+                <span class="bt-prog-label" id="bt-progress-label">Aguardando in&iacute;cio...</span>
+                <div class="bt-prog-bg">
+                    <div class="bt-prog-bar" id="bt-progress-bar"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- BACKTEST STATS -->
+        <section id="bt-stats">
+            <div class="bt-stat">
+                <span class="bt-stat-lbl">Saldo Atual</span>
+                <span class="bt-stat-val" id="bt-balance">$10,000.00</span>
+                <span class="bt-stat-sub" id="bt-pnl">P&L: ---</span>
+            </div>
+            <div class="bt-stat">
+                <span class="bt-stat-lbl">Posi&ccedil;&atilde;o Atual</span>
+                <span class="bt-stat-val" id="bt-position-wrap"><span class="bt-badge flat"
+                        id="bt-position">FORA</span></span>
+                <span class="bt-stat-sub" id="bt-entry-price">Entrada: ---</span>
+            </div>
+            <div class="bt-stat">
+                <span class="bt-stat-lbl">Stop Loss / Take Profit</span>
+                <span class="bt-stat-val" style="font-size:13px;" id="bt-sl-tp">SL: --- | TP: ---</span>
+                <span class="bt-stat-sub" id="bt-risk-label">Risco: ---</span>
+            </div>
+            <div class="bt-stat">
+                <span class="bt-stat-lbl">Opera&ccedil;&otilde;es</span>
+                <span class="bt-stat-val" id="bt-trades">0</span>
+                <span class="bt-stat-sub" id="bt-winrate">Win Rate: ---</span>
+            </div>
+            <div class="bt-stat">
+                <span class="bt-stat-lbl">Resultado</span>
+                <span class="bt-stat-val" id="bt-wins">&#9989; 0 &nbsp;&#10060; 0</span>
+                <span class="bt-stat-sub" id="bt-last-trade">&Uacute;ltimo: ---</span>
+            </div>
+        </section>
+
+        <!-- MAIN CONTENT: charts workspace + right control panel -->
+        <div id="main-content">
+
+            <!-- WORKSPACE -->
+            <div id="workspace">
+
+                <div class="panel" id="panel-main">
+                    <div class="rh n" data-dir="n"></div>
+                    <div class="rh s" data-dir="s"></div>
+                    <div class="rh e" data-dir="e"></div>
+                    <div class="rh w" data-dir="w"></div>
+                    <div class="rh ne" data-dir="ne"></div>
+                    <div class="rh nw" data-dir="nw"></div>
+                    <div class="rh se" data-dir="se"></div>
+                    <div class="rh sw" data-dir="sw"></div>
+                    <div class="panel-titlebar">
+                        <span class="panel-drag-icon">&#10239;&#10239;</span>
+                        <span class="panel-title">&#128200; Pre&ccedil;o BTCUSDT &bull; Candlestick + MA9/MA96</span>
+                    </div>
+                    <div class="panel-legend" id="legend-main"></div>
+                    <div class="panel-chart" id="chart-main"></div>
+                </div>
+
+                <div class="panel" id="panel-rsi">
+                    <div class="rh n" data-dir="n"></div>
+                    <div class="rh s" data-dir="s"></div>
+                    <div class="rh e" data-dir="e"></div>
+                    <div class="rh w" data-dir="w"></div>
+                    <div class="rh ne" data-dir="ne"></div>
+                    <div class="rh nw" data-dir="nw"></div>
+                    <div class="rh se" data-dir="se"></div>
+                    <div class="rh sw" data-dir="sw"></div>
+                    <div class="panel-titlebar">
+                        <span class="panel-drag-icon">&#10239;&#10239;</span>
+                        <span class="panel-title">&#128202; RSI (Wilder 14)</span>
+                    </div>
+                    <div class="panel-legend" id="legend-rsi"></div>
+                    <div class="panel-chart" id="chart-rsi"></div>
+                </div>
+
+                <div class="panel" id="panel-macd">
+                    <div class="rh n" data-dir="n"></div>
+                    <div class="rh s" data-dir="s"></div>
+                    <div class="rh e" data-dir="e"></div>
+                    <div class="rh w" data-dir="w"></div>
+                    <div class="rh ne" data-dir="ne"></div>
+                    <div class="rh nw" data-dir="nw"></div>
+                    <div class="rh se" data-dir="se"></div>
+                    <div class="rh sw" data-dir="sw"></div>
+                    <div class="panel-titlebar">
+                        <span class="panel-drag-icon">&#10239;&#10239;</span>
+                        <span class="panel-title">&#128201; MACD (12, 26, 9)</span>
+                    </div>
+                    <div class="panel-legend" id="legend-macd"></div>
+                    <div class="panel-chart" id="chart-macd"></div>
+                </div>
+
+            </div><!-- /#workspace -->
+
+            <!-- RIGHT CONTROL PANEL -->
+            <aside id="right-panel">
+
+                <!-- Header -->
+                <div class="rp-header">
+                    <div class="rp-header-icon">&#129302;</div>
+                    <div>
+                        <div class="rp-header-title">Bot Control</div>
+                        <div class="rp-header-sub">BTCUSDT Perpetual Futures</div>
+                    </div>
+                </div>
+
+                <!-- Body -->
+                <div class="rp-body">
+
+                    <!-- Status badge -->
+                    <div id="bot-status-badge" class="stopped">
+                        <span class="bot-status-dot"></span>
+                        <span id="bot-status-text">Bot Inativo</span>
+                    </div>
+
+                    <!-- Environment Selector -->
+                    <div>
+                        <div class="rp-section-title">Ambiente de Operação</div>
+                        <div class="strategy-tabs" style="margin-bottom: 12px;">
+                            <button class="strat-tab active" id="btn-env-testnet"
+                                onclick="setEnvironment('testnet')">Binance Testnet</button>
+                            <button class="strat-tab" id="btn-env-production"
+                                onclick="setEnvironment('production')">Produção Real</button>
+                        </div>
+                    </div>
+
+                    <!-- API Keys section -->
+                    <div>
+                        <div class="rp-section-title" id="api-section-title">Credenciais API (Testnet)</div>
+
+                        <!-- TESTNET FIELDS -->
+                        <div id="fields-testnet">
+                            <div class="rp-field" style="margin-bottom:8px;">
+                                <label>API Key Testnet</label>
+                                <div class="rp-input-wrap">
+                                    <input class="rp-input" type="password" id="bot-api-key-testnet"
+                                        placeholder="Cole sua API Key da Testnet" autocomplete="off" spellcheck="false">
+                                    <button class="rp-input-toggle"
+                                        onclick="toggleVisibility('bot-api-key-testnet', this)"
+                                        title="Mostrar/Ocultar">&#128065;</button>
+                                </div>
+                            </div>
+
+                            <div class="rp-field">
+                                <label>API Secret Testnet</label>
+                                <div class="rp-input-wrap">
+                                    <input class="rp-input" type="password" id="bot-api-secret-testnet"
+                                        placeholder="Cole seu API Secret da Testnet" autocomplete="off"
+                                        spellcheck="false">
+                                    <button class="rp-input-toggle"
+                                        onclick="toggleVisibility('bot-api-secret-testnet', this)"
+                                        title="Mostrar/Ocultar">&#128065;</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- PRODUCTION FIELDS -->
+                        <div id="fields-production" style="display:none;">
+                            <div class="rp-field" style="margin-bottom:8px;">
+                                <label>API Key Produção</label>
+                                <div class="rp-input-wrap">
+                                    <input class="rp-input" type="password" id="bot-api-key-prod"
+                                        placeholder="Cole sua API Key de Produção" autocomplete="off"
+                                        spellcheck="false">
+                                    <button class="rp-input-toggle" onclick="toggleVisibility('bot-api-key-prod', this)"
+                                        title="Mostrar/Ocultar">&#128065;</button>
+                                </div>
+                            </div>
+
+                            <div class="rp-field">
+                                <label>API Secret Produção</label>
+                                <div class="rp-input-wrap">
+                                    <input class="rp-input" type="password" id="bot-api-secret-prod"
+                                        placeholder="Cole seu API Secret de Produção" autocomplete="off"
+                                        spellcheck="false">
+                                    <button class="rp-input-toggle"
+                                        onclick="toggleVisibility('bot-api-secret-prod', this)"
+                                        title="Mostrar/Ocultar">&#128065;</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Strategy section -->
+                    <div>
+                        <div class="rp-section-title">Estrat&eacute;gia</div>
+                        <div
+                            style="background:var(--bg-toolbar);border:1px solid var(--border-color);border-radius:5px;padding:6px 10px;font-size:11px;font-weight:700;color:var(--color-yellow);display:flex;align-items:center;gap:6px;">
+                            <span>⚡ RSI + MACD</span>
+                            <span
+                                style="font-size:9px;color:var(--text-muted);font-weight:400;margin-left:auto;">(Autom&aacute;tico)</span>
+                        </div>
+                    </div>
+
+                    <!-- Order config -->
+                    <div>
+                        <div class="rp-section-title">Configura&ccedil;&atilde;o da Ordem</div>
+
+                        <div class="rp-field">
+                            <label>Quantidade por Opera&ccedil;&atilde;o</label>
+                            <div class="rp-input-wrap">
+                                <input class="rp-input has-suffix" type="number" id="bot-qty" value="0.002" step="0.001"
+                                    min="0.001" max="10">
+                                <span class="rp-input-suffix">BTC</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action buttons -->
+                    <div style="display:flex;flex-direction:column;gap:8px;">
+                        <button class="btn-bot-start" id="btn-bot-start" onclick="startBot()">
+                            &#9654; Iniciar Bot
+                        </button>
+                        <button class="btn-bot-stop" id="btn-bot-stop" onclick="stopBot()">
+                            &#9209; Encerrar Bot
+                        </button>
+                    </div>
+
+                    <!-- Status da Posição Enviada à Corretora -->
+                    <div id="bot-active-trade-box"
+                        style="background: var(--bg-toolbar); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; margin-top: 4px;">
+                        <div class="rp-section-title"
+                            style="margin-bottom: 6px; font-size: 11px; display: flex; justify-content: space-between; align-items: center;">
+                            <span>POSIÇÃO CORRETORA</span>
+                            <span id="trade-status-badge"
+                                style="font-weight: 700; color: var(--text-muted);">ENCERRADA</span>
+                        </div>
+                        <div
+                            style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; font-size: 11px; text-align: center;">
+                            <div style="background: rgba(255,255,255,0.03); padding: 5px; border-radius: 4px;">
+                                <div style="color: var(--text-muted); font-size: 9px; font-weight: 700;">ENTRADA</div>
+                                <div id="trade-info-entry" style="font-weight: bold; color: #ffffff;">---</div>
+                            </div>
+                            <div style="background: rgba(246,70,93,0.1); padding: 5px; border-radius: 4px;">
+                                <div style="color: var(--color-red); font-size: 9px; font-weight: 700;">STOP LOSS</div>
+                                <div id="trade-info-sl" style="font-weight: bold; color: var(--color-red);">---</div>
+                            </div>
+                            <div style="background: rgba(14,203,129,0.1); padding: 5px; border-radius: 4px;">
+                                <div style="color: var(--color-green); font-size: 9px; font-weight: 700;">TAKE PROFIT
+                                </div>
+                                <div id="trade-info-tp" style="font-weight: bold; color: var(--color-green);">---</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Mini stats -->
+                    <div>
+                        <div class="rp-section-title">Sess&atilde;o</div>
+                        <div class="rp-stats-grid">
+                            <div class="rp-stat-box">
+                                <span>Opera&ccedil;&otilde;es</span>
+                                <span id="bot-trades-count" class="text-white">0</span>
+                            </div>
+                            <div class="rp-stat-box">
+                                <span>Win Rate</span>
+                                <span id="bot-winrate" class="text-white">---</span>
+                            </div>
+                            <div class="rp-stat-box">
+                                <span>P&L Sess&atilde;o</span>
+                                <span id="bot-session-pnl" class="text-white">$0.00</span>
+                            </div>
+                            <div class="rp-stat-box">
+                                <span>Posi&ccedil;&atilde;o</span>
+                                <span id="bot-live-pos" class="text-white">FORA</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Log -->
+                    <div>
+                        <div class="rp-section-title">Log do Bot</div>
+                        <div class="bot-log" id="bot-log">
+                            <div class="log-entry">
+                                <span class="log-time">--:--</span>
+                                <span class="log-msg">Aguardando inicializa&ccedil;&atilde;o...</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div><!-- /.rp-body -->
+
+            </aside><!-- /#right-panel -->
+
+        </div><!-- /#main-content -->
+
+    </div><!-- /#app -->
+
+    <div id="drag-overlay"></div>
+
+    <!-- MODAL: RESULTADOS HISTÓRICOS -->
+    <div id="results-modal" onclick="handleResultsModalBgClick(event)">
+        <div class="results-modal-box">
+            <div class="results-modal-header">
+                <div class="results-modal-title">
+                    <span class="results-modal-icon">&#128202;</span>
+                    <div>
+                        <h2>Histórico de Resultados</h2>
+                        <p>ZENITH &bull; RSI + MACD &bull; Binance Futures</p>
+                    </div>
+                </div>
+                <button class="results-modal-close" onclick="closeResultsModal()">&times;</button>
+            </div>
+
+            <!-- FILTROS -->
+            <div class="results-filters-row" style="display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid rgba(255,255,255,0.05);flex-shrink:0;">
+                <div class="results-filters" style="display:flex;gap:8px;padding:0;border:none;">
+                    <button class="res-filter-btn active" id="filter-all" onclick="applyResultsFilter('all', this)">Todos</button>
+                    <button class="res-filter-btn" id="filter-backtest" onclick="applyResultsFilter('BACKTEST', this)">&#129514; Backtest</button>
+                    <button class="res-filter-btn" id="filter-live" onclick="applyResultsFilter('LIVE_TRADE', this)">&#9889; Ao Vivo</button>
+                </div>
+                <div class="results-period-selector" id="results-period-wrap" style="display:inline-flex;align-items:center;gap:8px;">
+                    <span style="font-size:0.7rem;color:rgba(255,255,255,0.4);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Período:</span>
+                    <select class="tb-select" id="select-results-period" onchange="changeResultsPeriod(this.value)" style="padding:4px 8px;font-size:11px;background:#181a20;border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:4px;outline:none;cursor:pointer;">
+                        <option value="30">Últimos 30 dias</option>
+                        <option value="90" selected>Últimos 3 meses</option>
+                        <option value="180">Últimos 6 meses</option>
+                        <option value="all">Todo o Histórico</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- SUMÁRIO DO ÚLTIMO BACKTEST / ACUMULADO -->
+            <div class="results-summary" id="results-summary" style="display:none">
+                <div class="res-summary-title">&#127942; RESULTADO ACUMULADO</div>
+                <div class="res-summary-grid" id="res-summary-grid">
+                    <!-- preenchido via JS -->
+                </div>
+                
+                <div class="res-summary-title" style="margin-top: 18px; margin-bottom: 8px;">📈 Resultados por Par</div>
+                <div class="res-summary-pairs" id="res-summary-pairs">
+                    <!-- preenchido via JS -->
+                </div>
+            </div>
+
+            <!-- TABELA -->
+            <div class="results-table-wrap">
+                <div id="results-loading" class="results-loading">
+                    <div class="res-spinner"></div>
+                    <span>Carregando dados do Firebase...</span>
+                </div>
+                <div id="results-empty" class="results-empty" style="display:none">
+                    &#128203; Nenhum resultado encontrado.<br>
+                    <small>Execute um backtest para gerar dados históricos.</small>
+                </div>
+                <table class="results-table" id="results-table" style="display:none">
+                    <thead>
+                        <tr>
+                            <th>Tipo</th>
+                            <th>Par</th>
+                            <th>Período</th>
+                            <th>P&amp;L Líquido</th>
+                            <th>Win Rate</th>
+                            <th>Trades</th>
+                            <th>Data</th>
+                        </tr>
+                    </thead>
+                    <tbody id="results-tbody">
+                        <!-- preenchido via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Módulos JS (ordem de dependência) -->
+    <script type="module" src="/js/firebase_sync.js"></script>
+    <script src="/js/state.js"></script>
+    <script src="/js/indicators.js"></script>
+    <script src="/js/chart.js"></script>
+    <script src="/js/ui.js"></script>
+    <script src="/js/data.js"></script>
+    <script src="/js/backtest.js"></script>
+    <script src="/js/live_bot.js"></script>
+    <script src="/js/results.js"></script>
+    <script src="/js/app.js"></script>
+
+    <script>
+        /* ============================================================
+           Seletor de Par — troca de símbolo em tempo real
+           ============================================================ */
+        function changeSymbol(symbol) {
+            if (state.symbol === symbol) return;
+
+            // Parar bot se estiver rodando
+            if (typeof botState !== 'undefined' && botState.running) {
+                stopBot();
+                botLogAdd(`⚠️ Bot parado para trocar para ${symbol}.`, 'yellow');
+            }
+
+            // Parar backtest se estiver rodando
+            if (typeof bt !== 'undefined' && bt.running) {
+                backtestStop();
+            }
+
+            // Atualizar estado global
+            state.symbol = symbol;
+            localStorage.setItem('bot_selected_symbol', symbol);
+
+            // Limpar cache do backtest (força recarregar com novo par)
+            bt.allCandles = [];
+            bt.loadedInterval = null;
+            bt.loadedSymbol = null;
+
+            // Resetar alertas do bot
+            if (typeof botState !== 'undefined') {
+                botState.alertBuy = false;
+                botState.alertSell = false;
+                botState.position = null;
+                botState.entryPrice = 0;
+                botState.stopLoss = 0;
+                botState.takeProfit = 0;
+            }
+
+            // Atualizar seletor de par
+            const sel = document.getElementById('select-symbol');
+            if (sel && sel.value !== symbol) sel.value = symbol;
+
+            // Atualizar títulos dinâmicos
+            const baseName = symbol.replace('USDT', '');
+            const logoTitle = document.querySelector('.logo-title');
+            if (logoTitle) logoTitle.textContent = `${symbol} Dashboard Bot`;
+            const panelTitle = document.querySelector('#panel-main .panel-title');
+            if (panelTitle) panelTitle.textContent = `📈 Preço ${symbol} • Candlestick + MA9/MA96`;
+            const rpSub = document.querySelector('.rp-header-sub');
+            if (rpSub) rpSub.textContent = `${symbol} Perpetual Futures`;
+            document.title = `${symbol} - Trading Bot Dashboard`;
+
+            // Recarregar dados ao vivo e reconectar WebSocket
+            fetchHistoricalData();
+            botLogAdd(`🔄 Par alterado para ${symbol}`, 'cyan');
+        }
+    </script>
+</body>
+
+</html>
